@@ -59,32 +59,32 @@ def tr_to_en(metin):
     return metin
 
 def pdf_olustur(df):
+    # FPDF2 kütüphanesi ile PDF nesnesi oluştur
     pdf = FPDF()
     pdf.add_page()
     
-    # Standart Arial fontu (Sadece Latin-1 destekler)
-    pdf.set_font("Arial", "B", 16)
+    # Yazı tipini ayarla
+    pdf.set_font("helvetica", "B", 16)
     
-    # Başlık (Türkçe karakterlerden arındırıldı)
-    baslik = tr_to_en("Yapay Zeka Borsa Asistanı - Tarama Raporu")
-    pdf.cell(190, 10, baslik, ln=True, align="C")
+    # Başlık
+    pdf.cell(190, 10, "BIST TARAMA RAPORU", ln=True, align="C")
     
-    pdf.set_font("Arial", "", 10)
-    tarih = tr_to_en(f"Rapor Tarihi: {pd.Timestamp.now().strftime('%d-%m-%Y %H:%M')}")
+    pdf.set_font("helvetica", "", 10)
+    tarih = f"Rapor Tarihi: {pd.Timestamp.now().strftime('%d-%m-%Y %H:%M')}"
     pdf.cell(190, 10, tarih, ln=True, align="C")
     pdf.ln(10)
     
     # Tablo Başlıkları
     pdf.set_fill_color(200, 220, 255)
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(60, 10, tr_to_en("Hisse"), 1, 0, "C", True)
-    pdf.cell(60, 10, tr_to_en("Fiyat (TL)"), 1, 0, "C", True)
-    pdf.cell(70, 10, tr_to_en("Guven Skoru"), 1, 1, "C", True)
+    pdf.set_font("helvetica", "B", 12)
+    pdf.cell(60, 10, "Hisse", 1, 0, "C", True)
+    pdf.cell(60, 10, "Fiyat (TL)", 1, 0, "C", True)
+    pdf.cell(70, 10, "Guven Skoru", 1, 1, "C", True)
     
     # Tablo Verileri
-    pdf.set_font("Arial", "", 12)
+    pdf.set_font("helvetica", "", 12)
     for i, row in df.iterrows():
-        # Hisse adı, fiyat ve güven skorunu temizleyerek ekle
+        # Türkçe karakterleri temizleyerek ekle
         hisse_adi = tr_to_en(str(row['Hisse']))
         fiyat = tr_to_en(str(row['Fiyat']))
         guven = tr_to_en(str(row['Güven']))
@@ -92,8 +92,9 @@ def pdf_olustur(df):
         pdf.cell(60, 10, hisse_adi, 1, 0, "C")
         pdf.cell(60, 10, fiyat, 1, 0, "C")
         pdf.cell(70, 10, guven, 1, 1, "C")
-        
-    return pdf.output()
+    
+    # output() fonksiyonuna dikkat: Mobilde açılmama sorununu bu çözer
+    return bytes(pdf.output())
 # === 1. MODELİ VE AYARLARI YÜKLE ===
 @st.cache_resource
 def model_yukle():
@@ -349,5 +350,6 @@ with tab2:
                 st.error(f"PDF oluşturulurken bir hata oluştu: {e}")
         else:
             st.warning("Kriterlere uygun hisse yok.")
+
 
 

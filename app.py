@@ -1,6 +1,6 @@
 # app.py
 # Kişisel Yapay Zeka Borsa Asistanı v7.1 (Kararlı Sürüm)
-# Güncelleme: Cache Sistemi (Dalgalanmayı Önler) + Hata Kontrolü
+# Güncelleme: Cache Sistemi (Dalgalanmayı Önler) + Hata Kontrolü + Güvenlik
 
 import streamlit as st
 import yfinance as yf
@@ -17,17 +17,17 @@ def sifre_kontrol():
     if st.session_state.get("password_correct", False):
         return True
 
-    # Şifre giriş ekranı
+    # Şifre giriş ekranı (Sayfa ayarı burada yapılmalı)
     st.set_page_config(page_title="Giriş Yap", page_icon="🔒")
     st.header("🔒 Korumalı Alan")
     
-    # BURADAKİ ŞİFREYİ DEĞİŞTİR! 👇
-    SIFRE = "12345" 
+    # SENİN ÖZEL ŞİFREN
+    SIFRE = "1239" 
 
     password = st.text_input("Lütfen erişim şifresini girin:", type="password")
     
     if st.button("Giriş Yap"):
-        if password == SIFRE:1239
+        if password == SIFRE:
             st.session_state["password_correct"] = True
             st.rerun()  # Sayfayı yenile ve içeri al
         else:
@@ -39,7 +39,7 @@ def sifre_kontrol():
 if not sifre_kontrol():
     st.stop()
 
-# === SAYFA AYARLARI ===
+# Şifre doğruysa ana sayfa ayarlarını güncelle
 st.set_page_config(
     page_title="AI Borsa Asistanı v7",
     page_icon="🦅",
@@ -61,8 +61,6 @@ def model_yukle():
 model, beklenen_sutunlar = model_yukle()
 
 # === 2. GÜVENLİ VERİ ÇEKME (CACHE SİSTEMİ) ===
-# Bu fonksiyon veriyi çeker ve 15 dakika boyunca hafızada tutar.
-# Böylece sürekli değişen sonuçlar çıkmaz.
 @st.cache_data(ttl=900) 
 def veri_getir(sembol):
     try:
@@ -74,12 +72,10 @@ def veri_getir(sembol):
         hisse = yf.download(sembol, period="2y", progress=False)
         if isinstance(hisse.columns, pd.MultiIndex): hisse.columns = hisse.columns.get_level_values(0)
         
-        # Basit Hata Kontrolü (13.000 TL gibi saçma fiyatları engellemek için)
+        # Basit Hata Kontrolü
         if len(hisse) > 0:
             son_fiyat = hisse['Close'].iloc[-1]
             if son_fiyat > 10000 and "IS" in sembol and sembol != "KONYA.IS": 
-                # KONYA hariç hiçbir hisse 10.000 TL değil (şimdilik)
-                # Eğer böyle gelirse muhtemelen veri bozuktur
                 return None, None, "Hatalı Fiyat Verisi (Yahoo Kaynaklı)"
 
         return hisse, xu100, None
@@ -145,7 +141,7 @@ def hesapla_teknik_ozellikler_final(df, xu100_df):
 
     return f
 
-# === 4. MENTOR YORUM MOTORU (v3) ===
+# === 4. MENTOR YORUM MOTORU ===
 def yorum_olustur(sembol, hisse_df, tahmin, guven, features):
     son_fiyat = hisse_df['Close'].iloc[-1]
     onceki_fiyat = hisse_df['Close'].iloc[-2]
@@ -202,13 +198,11 @@ def yorum_olustur(sembol, hisse_df, tahmin, guven, features):
         **🛑 SATIŞ BASKISI / UZAK DUR**
         
         Model, {sembol} grafiğinde zayıflık tespit etti. Geçmişte benzer durumlar genelde düşüş veya yatay seyirle sonuçlanmış.
-        
         * **Tavsiye:** Nakitte kalmak şu an daha güvenli.
         """)
     else:
         st.warning(f"""
         **⚪ KARARSIZ BÖLGE (Nötr)**
-        
         Model net bir yön göremiyor. İşlem yapmak yazı-tura atmak gibi olabilir.
         * **Tavsiye:** İzleme listene al ama acele etme.
         """)
@@ -223,7 +217,6 @@ BLACKLIST = ['TUPRS.IS', 'SAHOL.IS']
 
 tab1, tab2 = st.tabs(["🔍 Tek Hisse Analizi", "🔭 BIST 100 Tarama"])
 
-# --- TAB 1 ---
 with tab1:
     st.subheader("Hisse Dedektifi")
     sembol_giris = st.text_input("Hisse Kodu Girin (Örn: THYAO):", "").upper()
@@ -234,10 +227,8 @@ with tab1:
                 st.error(f"⚠️ {sembol_giris} kara listede.")
             else:
                 sembol = sembol_giris + ".IS" if not sembol_giris.endswith(".IS") else sembol_giris
-                
                 with st.spinner("Veriler çekiliyor (Önbellek Kullanılıyor)..."):
                     hisse, xu100, hata = veri_getir(sembol)
-                    
                     if hata:
                         st.error(f"Veri Hatası: {hata}")
                     elif hisse is not None and len(hisse) > 200:
@@ -249,7 +240,6 @@ with tab1:
                     else:
                         st.error("Yetersiz veri veya hisse bulunamadı.")
 
-# --- TAB 2 ---
 with tab2:
     st.subheader("BIST 100 Tarama")
     if st.button("Taramayı Başlat", key="btn2"):
@@ -266,25 +256,18 @@ with tab2:
             'TKFEN.IS', 'TOASO.IS', 'TSKB.IS', 'TTKOM.IS', 'TTRAK.IS', 'TUKAS.IS', 'TUPRS.IS', 'ULKER.IS', 'VAKBN.IS', 'VESBE.IS',
             'VESTL.IS', 'YEOTK.IS', 'YKBNK.IS', 'YYLGD.IS', 'ZOREN.IS'
         ]
-        
         progress = st.progress(0)
         sonuclar = []
-        
         for i, sembol in enumerate(TARAMA_LISTESI):
             progress.progress((i+1)/len(TARAMA_LISTESI))
             if sembol in BLACKLIST: continue
-            
             try:
-                # Burada cache kullanmıyoruz çünkü tarama uzun sürerse taze veri isteriz
-                # Ama tekli analizde cache şart
                 hisse, xu100, err = veri_getir(sembol) 
-                
                 if hisse is not None and len(hisse) > 200:
                     feat = hesapla_teknik_ozellikler_final(hisse, xu100)
                     son_durum = feat.iloc[[-1]][beklenen_sutunlar].fillna(0)
                     tahmin = model.predict(son_durum)[0]
                     guven = model.predict_proba(son_durum)[0][tahmin]
-                    
                     if tahmin == 2 and guven >= guven_esigi:
                         sonuclar.append({
                             "Hisse": sembol.replace(".IS", ""),
@@ -293,7 +276,6 @@ with tab2:
                             "Skor": guven
                         })
             except: pass
-            
         progress.empty()
         if sonuclar:
             df = pd.DataFrame(sonuclar).sort_values("Skor", ascending=False)

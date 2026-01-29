@@ -5,5 +5,6 @@ numpy
 joblib
 xgboost
 scikit-learn
-fpdf
+fpdf2
+
 

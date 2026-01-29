@@ -46,7 +46,34 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+from fpdf import FPDF
 
+def pdf_olustur(df):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    
+    # Başlık
+    pdf.cell(190, 10, "Yapay Zeka Borsa Asistanı - Tarama Raporu", ln=True, align="C")
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(190, 10, f"Rapor Tarihi: {pd.Timestamp.now().strftime('%d-%m-%Y %H:%M')}", ln=True, align="C")
+    pdf.ln(10)
+    
+    # Tablo Başlıkları
+    pdf.set_fill_color(200, 220, 255)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(60, 10, "Hisse", 1, 0, "C", True)
+    pdf.cell(60, 10, "Fiyat (TL)", 1, 0, "C", True)
+    pdf.cell(70, 10, "Güven Skoru", 1, 1, "C", True)
+    
+    # Tablo Verileri
+    pdf.set_font("Arial", "", 12)
+    for i, row in df.iterrows():
+        pdf.cell(60, 10, str(row['Hisse']), 1, 0, "C")
+        pdf.cell(60, 10, str(row['Fiyat']), 1, 0, "C")
+        pdf.cell(70, 10, str(row['Güven']), 1, 1, "C")
+        
+    return pdf.output(dest='S').encode('latin-1')
 # === 1. MODELİ VE AYARLARI YÜKLE ===
 @st.cache_resource
 def model_yukle():
@@ -277,9 +304,29 @@ with tab2:
                         })
             except: pass
         progress.empty()
+        progress.empty()
+        
         if sonuclar:
-            df = pd.DataFrame(sonuclar).sort_values("Skor", ascending=False)
+            # 1. Verileri Hazırla ve Sırala
+            df_res = pd.DataFrame(sonuclar).sort_values("Skor", ascending=False)
+            
+            # 2. Ekranda Kullanıcıya Göster
             st.success(f"Tarama Bitti! {len(sonuclar)} fırsat bulundu.")
-            st.dataframe(df[['Hisse', 'Fiyat', 'Güven']], use_container_width=True)
+            st.dataframe(df_res[['Hisse', 'Fiyat', 'Güven']], use_container_width=True)
+            
+            # 3. PDF Dosyasını Hazırla (Arka Planda)
+            try:
+                pdf_data = pdf_olustur(df_res)
+                
+                # 4. İndirme Butonunu Göster
+                st.download_button(
+                    label="📄 Raporu PDF Olarak İndir",
+                    data=pdf_data,
+                    file_name=f"BIST_Tarama_{pd.Timestamp.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf"
+                )
+            except Exception as e:
+                st.error(f"PDF oluşturulurken bir hata oluştu: {e}")
         else:
             st.warning("Kriterlere uygun hisse yok.")
+

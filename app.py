@@ -1,7 +1,8 @@
 # app.py
 # Kişisel Yapay Zeka Borsa Asistanı v7.1 (Kararlı Sürüm)
 # Güncelleme: Cache Sistemi (Dalgalanmayı Önler) + Hata Kontrolü + Güvenlik
-
+from fpdf import FPDF
+import io
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -58,46 +59,50 @@ def tr_to_en(metin):
         metin = metin.replace(tr, en)
     return metin
 
+def tr_to_en(metin):
+    """Türkçe karakterleri İngilizce karşılıklarına çevirir (PDF güvenliği için)."""
+    mapping = {
+        "ç": "c", "Ç": "C", "ğ": "g", "Ğ": "G", "ı": "i", "İ": "I",
+        "ö": "o", "Ö": "O", "ş": "s", "Ş": "S", "ü": "u", "Ü": "U"
+    }
+    for tr, en in mapping.items():
+        metin = metin.replace(tr, en)
+    return metin
+
 def pdf_olustur(df):
     pdf = FPDF()
     pdf.add_page()
     
-    # Yazı tipi (Standart helvetica)
+    # Başlık Ayarları
     pdf.set_font("helvetica", "B", 16)
+    pdf.cell(190, 10, tr_to_en("BIST TARAMA RAPORU"), ln=True, align="C")
     
-    # Başlık
-    pdf.cell(190, 10, "BIST TARAMA RAPORU", ln=True, align="C")
-    
+    # Tarih
     pdf.set_font("helvetica", "", 10)
-    tarih = f"Rapor Tarihi: {pd.Timestamp.now().strftime('%d-%m-%Y %H:%M')}"
+    tarih = tr_to_en(f"Rapor Tarihi: {pd.Timestamp.now().strftime('%d-%m-%Y %H:%M')}")
     pdf.cell(190, 10, tarih, ln=True, align="C")
     pdf.ln(10)
     
-    # Tablo Başlıkları
+    # Tablo Başlıkları (Mavi Dolgulu)
     pdf.set_fill_color(200, 220, 255)
     pdf.set_font("helvetica", "B", 12)
-    pdf.cell(60, 10, "Hisse", 1, 0, "C", True)
-    pdf.cell(60, 10, "Fiyat (TL)", 1, 0, "C", True)
-    pdf.cell(70, 10, "Guven Skoru", 1, 1, "C", True)
+    pdf.cell(60, 10, tr_to_en("Hisse"), 1, 0, "C", True)
+    pdf.cell(60, 10, tr_to_en("Fiyat (TL)"), 1, 0, "C", True)
+    pdf.cell(70, 10, tr_to_en("Guven Skoru"), 1, 1, "C", True)
     
     # Tablo Verileri
     pdf.set_font("helvetica", "", 12)
     for i, row in df.iterrows():
-        # tr_to_en fonksiyonu ile temizlik yaparak ekle
-        hisse_adi = tr_to_en(str(row['Hisse']))
-        fiyat = tr_to_en(str(row['Fiyat']))
-        guven = tr_to_en(str(row['Güven']))
+        h_adi = tr_to_en(str(row['Hisse']))
+        f_fiyat = tr_to_en(str(row['Fiyat']))
+        g_skor = tr_to_en(str(row['Güven']))
         
-        pdf.cell(60, 10, hisse_adi, 1, 0, "C")
-        pdf.cell(60, 10, fiyat, 1, 0, "C")
-        pdf.cell(70, 10, guven, 1, 1, "C")
+        pdf.cell(60, 10, h_adi, 1, 0, "C")
+        pdf.cell(60, 10, f_fiyat, 1, 0, "C")
+        pdf.cell(70, 10, g_skor, 1, 1, "C")
     
-    # HATA ÇÖZÜMÜ BURASI: pdf.output() fonksiyonunu argümansız çağırıp bytes'a çeviriyoruz
-    # Bu yöntem fpdf2 kütüphanesinde en kararlı çalışan yöntemdir.
-    pdf_output = pdf.output()
-    if isinstance(pdf_output, str):
-        return pdf_output.encode('latin-1')
-    return bytes(pdf_output)
+    # fpdf2'de çıktı almak için en güvenli yöntem:
+    return pdf.output()
 # === 1. MODELİ VE AYARLARI YÜKLE ===
 @st.cache_resource
 def model_yukle():
@@ -331,28 +336,26 @@ with tab2:
         progress.empty()
         
         if sonuclar:
-            # 1. Verileri Hazırla ve Sırala
             df_res = pd.DataFrame(sonuclar).sort_values("Skor", ascending=False)
-            
-            # 2. Ekranda Kullanıcıya Göster
             st.success(f"Tarama Bitti! {len(sonuclar)} fırsat bulundu.")
             st.dataframe(df_res[['Hisse', 'Fiyat', 'Güven']], use_container_width=True)
             
-            # 3. PDF Dosyasını Hazırla (Arka Planda)
             try:
-                pdf_data = pdf_olustur(df_res)
+                # fpdf2 çıktısını al
+                pdf_bytes = pdf_olustur(df_res)
                 
-                # 4. İndirme Butonunu Göster
+                # Streamlit üzerinden indir
                 st.download_button(
                     label="📄 Raporu PDF Olarak İndir",
-                    data=pdf_data,
-                    file_name=f"BIST_Tarama_{pd.Timestamp.now().strftime('%Y%m%d')}.pdf",
+                    data=pdf_bytes,
+                    file_name=f"BIST_Raporu_{pd.Timestamp.now().strftime('%H%M')}.pdf",
                     mime="application/pdf"
                 )
             except Exception as e:
                 st.error(f"PDF oluşturulurken bir hata oluştu: {e}")
         else:
             st.warning("Kriterlere uygun hisse yok.")
+
 
 
 

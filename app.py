@@ -48,32 +48,52 @@ st.set_page_config(
 )
 from fpdf import FPDF
 
+def tr_to_en(metin):
+    """Türkçe karakterleri İngilizce karşılıklarına çevirir."""
+    mapping = {
+        "ç": "c", "Ç": "C", "ğ": "g", "Ğ": "G", "ı": "i", "İ": "I",
+        "ö": "o", "Ö": "O", "ş": "s", "Ş": "S", "ü": "u", "Ü": "U"
+    }
+    for tr, en in mapping.items():
+        metin = metin.replace(tr, en)
+    return metin
+
 def pdf_olustur(df):
     pdf = FPDF()
     pdf.add_page()
+    
+    # Standart Arial fontu (Sadece Latin-1 destekler)
     pdf.set_font("Arial", "B", 16)
     
-    # Başlık
-    pdf.cell(190, 10, "Yapay Zeka Borsa Asistanı - Tarama Raporu", ln=True, align="C")
+    # Başlık (Türkçe karakterlerden arındırıldı)
+    baslik = tr_to_en("Yapay Zeka Borsa Asistanı - Tarama Raporu")
+    pdf.cell(190, 10, baslik, ln=True, align="C")
+    
     pdf.set_font("Arial", "", 10)
-    pdf.cell(190, 10, f"Rapor Tarihi: {pd.Timestamp.now().strftime('%d-%m-%Y %H:%M')}", ln=True, align="C")
+    tarih = tr_to_en(f"Rapor Tarihi: {pd.Timestamp.now().strftime('%d-%m-%Y %H:%M')}")
+    pdf.cell(190, 10, tarih, ln=True, align="C")
     pdf.ln(10)
     
     # Tablo Başlıkları
     pdf.set_fill_color(200, 220, 255)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(60, 10, "Hisse", 1, 0, "C", True)
-    pdf.cell(60, 10, "Fiyat (TL)", 1, 0, "C", True)
-    pdf.cell(70, 10, "Güven Skoru", 1, 1, "C", True)
+    pdf.cell(60, 10, tr_to_en("Hisse"), 1, 0, "C", True)
+    pdf.cell(60, 10, tr_to_en("Fiyat (TL)"), 1, 0, "C", True)
+    pdf.cell(70, 10, tr_to_en("Guven Skoru"), 1, 1, "C", True)
     
     # Tablo Verileri
     pdf.set_font("Arial", "", 12)
     for i, row in df.iterrows():
-        pdf.cell(60, 10, str(row['Hisse']), 1, 0, "C")
-        pdf.cell(60, 10, str(row['Fiyat']), 1, 0, "C")
-        pdf.cell(70, 10, str(row['Güven']), 1, 1, "C")
+        # Hisse adı, fiyat ve güven skorunu temizleyerek ekle
+        hisse_adi = tr_to_en(str(row['Hisse']))
+        fiyat = tr_to_en(str(row['Fiyat']))
+        guven = tr_to_en(str(row['Güven']))
         
-    return pdf.output(dest='S').encode('latin-1')
+        pdf.cell(60, 10, hisse_adi, 1, 0, "C")
+        pdf.cell(60, 10, fiyat, 1, 0, "C")
+        pdf.cell(70, 10, guven, 1, 1, "C")
+        
+    return pdf.output()
 # === 1. MODELİ VE AYARLARI YÜKLE ===
 @st.cache_resource
 def model_yukle():
@@ -329,4 +349,5 @@ with tab2:
                 st.error(f"PDF oluşturulurken bir hata oluştu: {e}")
         else:
             st.warning("Kriterlere uygun hisse yok.")
+
 

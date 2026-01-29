@@ -59,11 +59,10 @@ def tr_to_en(metin):
     return metin
 
 def pdf_olustur(df):
-    # FPDF2 kütüphanesi ile PDF nesnesi oluştur
     pdf = FPDF()
     pdf.add_page()
     
-    # Yazı tipini ayarla
+    # Yazı tipi (Standart helvetica)
     pdf.set_font("helvetica", "B", 16)
     
     # Başlık
@@ -84,7 +83,7 @@ def pdf_olustur(df):
     # Tablo Verileri
     pdf.set_font("helvetica", "", 12)
     for i, row in df.iterrows():
-        # Türkçe karakterleri temizleyerek ekle
+        # tr_to_en fonksiyonu ile temizlik yaparak ekle
         hisse_adi = tr_to_en(str(row['Hisse']))
         fiyat = tr_to_en(str(row['Fiyat']))
         guven = tr_to_en(str(row['Güven']))
@@ -93,8 +92,12 @@ def pdf_olustur(df):
         pdf.cell(60, 10, fiyat, 1, 0, "C")
         pdf.cell(70, 10, guven, 1, 1, "C")
     
-    # output() fonksiyonuna dikkat: Mobilde açılmama sorununu bu çözer
-    return bytes(pdf.output())
+    # HATA ÇÖZÜMÜ BURASI: pdf.output() fonksiyonunu argümansız çağırıp bytes'a çeviriyoruz
+    # Bu yöntem fpdf2 kütüphanesinde en kararlı çalışan yöntemdir.
+    pdf_output = pdf.output()
+    if isinstance(pdf_output, str):
+        return pdf_output.encode('latin-1')
+    return bytes(pdf_output)
 # === 1. MODELİ VE AYARLARI YÜKLE ===
 @st.cache_resource
 def model_yukle():
@@ -350,6 +353,7 @@ with tab2:
                 st.error(f"PDF oluşturulurken bir hata oluştu: {e}")
         else:
             st.warning("Kriterlere uygun hisse yok.")
+
 
 
 
